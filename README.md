@@ -102,6 +102,9 @@ CommonWeb.trackPageview();
 // track clicks for each link on the page
 CommonWeb.trackClicks();
 
+// track mouse movements on the page
+CommonWeb.trackMousehoverChanges
+    
 // track submissions for every form on the page
 CommonWeb.trackFormSubmissions();
 
