@@ -3,6 +3,7 @@
   var options = {
     pageviewsEventName: "pageviews",
     inputChangeEventName: "input-changes",
+    mousehoverEventName: "mousehover-event",  
     clicksEventName: "clicks",
     formSubmissionsEventName: "form-submissions",
     callbackTimeout: 1000,
@@ -212,6 +213,32 @@
     });
   }
 
+  // track things that are not links; i.e. don't need any special tricks to
+  // prevent page unloads
+  CommonWeb.trackMousehoverChanges = function (elements, moreProperties) {
+    if (typeof elements === 'undefined') {
+        //elements = $("*");
+        $(window).mouseover(function(event) {
+          var x = event.clientX, y = event.clientY, element = document.elementFromPoint(x, y);
+          var properties = toMousehoverProperties(event, element, moreProperties);
+        CommonWeb.Callback(options.mousehoverEventName, properties);
+      });
+        return;
+    }
+
+    $.each(elements, function (index, element) {
+
+      $(element).on('mousehover', function (event) {
+
+        var properties = toMousehoverProperties(event, element, moreProperties);
+        CommonWeb.Callback(options.mousehoverEventName, properties);
+
+      });
+
+    });
+
+  }
+
   // define a namespace just for transformations of events and elements to properties
   // override as a workaround to add / remove properties
   CommonWeb.Transformations = {
@@ -223,7 +250,7 @@
       properties['timestamp'] = event.timestamp;
       properties['type'] = event.type;
       properties['metaKey'] = event.metaKey;
-
+        
       return properties;
 
     },
@@ -293,11 +320,36 @@
 
     var elementProperties = { element: CommonWeb.Transformations.elementToProperties(element, null) };
     var eventProperties = { event: CommonWeb.Transformations.eventToProperties(event) };
+    var extraProps = getInfoBasedOnMouseXY(event);
+    if (extraProps != null) {
+        elementProperties.extra = extraProps.element;
+        eventProperties.x = extraProps.x;
+        eventProperties.y = extraProps.y;
+    }
 
-    return $.extend(true, {}, properties, elementProperties, eventProperties);
+    return $.extend(true, {}, properties, elementProperties, eventProperties, extraProps);
 
   }
 
+  function toMousehoverProperties(event, element, moreProperties) {
+
+    var defaultProperties = CommonWeb.options.globalProperties;
+    var properties = $.extend(true, {}, defaultProperties, toProperties(moreProperties, [event, element]));
+
+    var elementProperties = { element: CommonWeb.Transformations.elementToProperties(element, null) };
+    var eventProperties = { event: CommonWeb.Transformations.eventToProperties(event) };
+      
+    var extraProps = getInfoBasedOnMouseXY(event);
+    if (extraProps != null) {
+        elementProperties.extra = extraProps.element;
+        eventProperties.x = extraProps.x;
+        eventProperties.y = extraProps.y;
+    }
+
+    return $.extend(true, {}, properties, elementProperties, eventProperties, extraProps);
+
+  }
+    
   function toChangeProperties(event, element, previousValue, moreProperties) {
 
     var defaultProperties = CommonWeb.options.globalProperties;
@@ -337,6 +389,40 @@
     return event.metaKey || event.altKey || event.ctrlKey || event.shiftKey;
   }
 
+  /* Helper function to create object with X, Y and HTML element information on the basis of mousehover positions*/
+  function getInfoBasedOnMouseXY(e) {
+    if (e == null) return;
+    var result = new Object();
+    var x = e.clientX, y = e.clientY,
+        elementMouseIsOver = document.elementFromPoint(x, y);
+    var name = elementMouseIsOver.name;
+    var id = elementMouseIsOver.id;
+    if (typeof name === 'undefined') {
+        name = "";
+    }
+    if (typeof id === 'undefined') {
+        id = "";
+    }
+    var attrs = elementMouseIsOver.attributes;
+    var output = new Array();
+    for(var i = attrs.length - 1; i >= 0; i--) {
+        var tmp = new Object();
+        tmp.name = attrs[i].name;
+        tmp.val = attrs[i].value;
+        output.push(tmp);
+    }
+      result.x = x;
+      result.y = y;
+      var ele = new Object();
+      ele.name = name;
+      ele.id = id;
+      ele.attrs = output;
+      ele.type = elementMouseIsOver.tagName;
+      ele.domtype = elementMouseIsOver + "";
+      result.element = ele;
+      return result;
+  }
+    
   /*
    jQuery-GetPath v0.01, by Dave Cardwell. (2007-04-27)
 
